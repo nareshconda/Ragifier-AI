@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Loading…</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* =====================================================================
+     pgAdmin-flavoured theme.
+
+     The cues that make pgAdmin read as pgAdmin: the PostgreSQL blue chrome,
+     light workspace, small 3px radii, and above all a DENSE data grid with a
+     row-number gutter, sticky grey header and hairline borders.
+
+     Light is the default (as in pgAdmin); the dark set mirrors pgAdmin's own
+     dark theme and is toggled by the button in the toolbar.
+     ===================================================================== */
+  :root{
+    --pg:#326690;            /* PostgreSQL blue */
+    --pg-d:#27527a;
+    --pg-l:#4a86b8;
+
+    --bg:#ffffff;
+    --chrome:#f3f5f7;        /* toolbars, strips */
+    --panel:#fbfcfd;         /* cards */
+    --panel-2:#eef1f5;
+    --line:#d6dde5;
+    --line-2:#c3ccd6;
+    --text:#1f2933;
+    --dim:#6a7684;
+    --user:#e7f0f8;
+    --user-line:#bcd4e6;
+
+    --grid-head:#eceff3;
+    --grid-alt:#f7f9fb;
+    --grid-hover:#e3edf6;
+    --gutter:#eceff3;
+
+    --ok:#1a7f4b;
+    --warn:#a8630a;
+    --err:#c0392b;
+    --err-bg:#fdecea;
+    --err-line:#f2c2bd;
+
+    --mono:'Source Code Pro',ui-monospace,Menlo,Consolas,monospace;
+    --ui:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Helvetica,Arial,sans-serif;
+    --r:3px;
+  }
+  :root[data-theme="dark"]{
+    --bg:#232629;
+    --chrome:#2f3337;
+    --panel:#2b2f33;
+    --panel-2:#34393e;
+    --line:#434950;
+    --line-2:#525961;
+    --text:#d8dde3;
+    --dim:#949da7;
+    --user:#2d4257;
+    --user-line:#3d5a75;
+
+    --grid-head:#34393e;
+    --grid-alt:#272b2f;
+    --grid-hover:#3a434c;
+    --gutter:#34393e;
+
+    --ok:#4ec47f;
+    --warn:#e0a23c;
+    --err:#ef6b60;
+    --err-bg:#3a2522;
+    --err-line:#6b3b36;
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--text);font-family:var(--ui);
+    font-size:13px;display:flex;flex-direction:column}
+
+  /* ---------- title bar: the strongest "this is a database tool" cue ----- */
+  header{display:flex;align-items:center;gap:10px;
+    padding:0 14px;height:40px;flex:0 0 auto;
+    background:var(--pg);color:#fff;
+    border-bottom:1px solid var(--pg-d)}
+  header h1{font-size:13.5px;font-weight:600;letter-spacing:.02em;
+    display:flex;align-items:center;gap:8px;color:#fff}
+  header h1 .mark{font-size:15px;opacity:.95;color:#fff}
+  header .sub{font-family:var(--mono);font-size:11px;
+    color:rgba(255,255,255,.78);margin-left:auto;letter-spacing:.02em}
+  .led{width:8px;height:8px;border-radius:50%;background:#7ee2a8;
+    box-shadow:0 0 6px rgba(126,226,168,.8);flex:0 0 auto}
+  .led.off{background:#ff8a80;box-shadow:0 0 6px rgba(255,138,128,.8)}
+
+  /* ---------- toolbar ---------------------------------------------------- */
+  .toolbar{display:flex;align-items:center;gap:4px;height:34px;padding:0 10px;
+    background:var(--chrome);border-bottom:1px solid var(--line);flex:0 0 auto}
+  .tb-btn{background:transparent;border:1px solid transparent;border-radius:var(--r);
+    color:var(--dim);font-family:var(--ui);font-size:12px;font-weight:500;
+    padding:4px 9px;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+  .tb-btn:hover{background:var(--panel-2);border-color:var(--line);color:var(--text)}
+  /* display:inline-flex above beats the [hidden] default, so restate it */
+  .tb-btn[hidden]{display:none}
+  .tb-sep{width:1px;height:18px;background:var(--line);margin:0 5px}
+  .tb-right{margin-left:auto;display:flex;align-items:center;gap:4px}
+  .tb-stat{font-family:var(--mono);font-size:11px;color:var(--dim)}
+
+  /* ---------- workspace -------------------------------------------------- */
+  #chat{flex:1 1 auto;overflow-y:auto;padding:16px 0 10px;scroll-behavior:smooth;
+    background:var(--bg)}
+  .row{max-width:1000px;margin:0 auto 12px;padding:0 18px;display:flex}
+  .bubble{padding:9px 13px;border-radius:var(--r);line-height:1.55;font-size:13.5px;
+    white-space:pre-wrap;word-break:break-word;max-width:80%}
+  .row.user{justify-content:flex-end}
+  .row.user .bubble{background:var(--user);border:1px solid var(--user-line);
+    color:var(--text)}
+  .row.bot .bubble{background:var(--panel);border:1px solid var(--line)}
+  .row.err .bubble{background:var(--err-bg);border:1px solid var(--err-line);
+    color:var(--err)}
+
+  .bubble.md{white-space:normal}
+  .bubble.md.wide{max-width:100%}
+  .bubble.md .prose div{margin:0 0 2px}
+  .bubble.md .prose br{line-height:.6}
+  .bubble.md .prose:not(:first-child){margin-top:8px}
+  .bubble.md strong{color:var(--text);font-weight:600}
+  .bubble.md em{color:var(--dim);font-style:italic}
+  .bubble.md code{font-family:var(--mono);font-size:12px;background:var(--panel-2);
+    border:1px solid var(--line);border-radius:var(--r);padding:1px 4px}
+  .bubble.md ul,.bubble.md ol{margin:4px 0 6px;padding-left:22px}
+  .bubble.md li{margin:2px 0}
+
+  /* ---------- SQL / code: the Query Tool editor -------------------------- */
+  .bubble.md .codeblock{margin:8px 0;border:1px solid var(--line);
+    border-radius:var(--r);overflow:hidden;background:var(--panel)}
+  .bubble.md .cb-head{display:flex;align-items:center;justify-content:space-between;
+    padding:4px 9px;background:var(--grid-head);border-bottom:1px solid var(--line)}
+  .bubble.md .cb-lang{font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;
+    color:var(--dim);text-transform:uppercase}
+  .bubble.md .cb-copy{background:var(--panel);color:var(--dim);
+    border:1px solid var(--line-2);border-radius:var(--r);font-family:var(--ui);
+    font-size:11px;font-weight:500;padding:2px 10px;cursor:pointer}
+  .bubble.md .cb-copy:hover{color:var(--pg);border-color:var(--pg)}
+  .bubble.md .cb-copy.copied{color:var(--ok);border-color:var(--ok)}
+  .bubble.md .codeblock pre{margin:0;padding:10px 12px;overflow-x:auto}
+  .bubble.md .codeblock code{font-family:var(--mono);font-size:12px;line-height:1.55;
+    color:var(--text);white-space:pre;background:none;border:none;padding:0}
+
+  /* ---------- data grid: the centrepiece --------------------------------- */
+  .tablewrap{overflow:auto;max-height:470px;border:1px solid var(--line);
+    border-radius:var(--r);background:var(--bg)}
+  .tablewrap+.tablewrap{margin-top:8px}
+  .tw-bar{display:flex;align-items:center;justify-content:space-between;
+    padding:4px 9px;background:var(--grid-head);border-bottom:1px solid var(--line);
+    position:sticky;top:0;z-index:3}
+  .tw-info{font-family:var(--mono);font-size:10.5px;color:var(--dim);letter-spacing:.03em}
+  .tw-save{background:var(--panel);color:var(--dim);border:1px solid var(--line-2);
+    border-radius:var(--r);font-family:var(--ui);font-size:11px;font-weight:500;
+    padding:2px 10px;cursor:pointer}
+  .tw-save:hover{color:var(--pg);border-color:var(--pg)}
+
+  table.grid{border-collapse:separate;border-spacing:0;font-family:var(--mono);
+    font-size:12px;width:100%}
+  table.grid th,table.grid td{border-bottom:1px solid var(--line);
+    border-right:1px solid var(--line);padding:4px 10px;text-align:left;
+    white-space:nowrap;line-height:1.5}
+  table.grid th{background:var(--grid-head);color:var(--text);font-weight:600;
+    position:sticky;top:26px;z-index:2;border-bottom:1px solid var(--line-2)}
+  table.grid td{color:var(--text)}
+  table.grid td.num,table.grid th.num{text-align:right}
+  /* row-number gutter, straight out of the pgAdmin results grid */
+  table.grid th.rownum,table.grid td.rownum{background:var(--gutter);
+    color:var(--dim);text-align:right;font-size:11px;width:1%;
+    position:sticky;left:0;z-index:1;border-right:1px solid var(--line-2);
+    user-select:none;padding:4px 8px}
+  table.grid th.rownum{z-index:4}
+  table.grid tbody tr:nth-child(even) td{background:var(--grid-alt)}
+  table.grid tbody tr:nth-child(even) td.rownum{background:var(--gutter)}
+  table.grid tbody tr:hover td{background:var(--grid-hover)}
+  table.grid th:last-child,table.grid td:last-child{border-right:none}
+  table.grid tbody tr:last-child td{border-bottom:none}
+
+  /* ---------- activity panel: pgAdmin's Messages tab --------------------- */
+  .job{max-width:1000px;margin:0 auto 12px;padding:0 18px}
+  .job-inner{border:1px solid var(--line);border-radius:var(--r);overflow:hidden;
+    background:var(--panel)}
+  .job-head{display:flex;align-items:center;gap:9px;padding:6px 11px;
+    background:var(--grid-head);border-bottom:1px solid var(--line);
+    font-family:var(--mono);font-size:11.5px;letter-spacing:.02em;user-select:none}
+  .job.collapsible .job-head{cursor:pointer}
+  .job-head .dot{width:7px;height:7px;border-radius:50%;background:var(--warn);
+    animation:pulse 1.1s infinite alternate;flex:0 0 auto}
+  .job.done .dot{background:var(--ok);animation:none}
+  .job.fail .dot{background:var(--err);animation:none}
+  @keyframes pulse{from{opacity:.3}to{opacity:1}}
+  .job-head .name{color:var(--pg);font-weight:600}
+  :root[data-theme="dark"] .job-head .name{color:var(--pg-l)}
+  .job.done .name{color:var(--ok)}
+  .job.fail .name{color:var(--err)}
+  .job-head .state{color:var(--dim)}
+  .job-head .job-stop{background:var(--panel);color:var(--err);
+    border:1px solid var(--err-line);border-radius:var(--r);font-family:var(--ui);
+    font-size:11px;font-weight:500;padding:2px 9px;cursor:pointer;margin-left:auto}
+  .job-head .job-stop:hover{background:var(--err);color:#fff;border-color:var(--err)}
+  .job-head .job-stop:disabled{opacity:.5;cursor:default}
+  .job-head .job-stop + .toggle{margin-left:0}
+  .job-head .toggle{color:var(--dim);font-size:11px;display:none}
+  .job.collapsible .job-head .toggle{display:inline}
+  .job.collapsed .job-body{display:none}
+  .tool-sec{border-top:1px solid var(--line)}
+  .tool-sec:first-child{border-top:none}
+  .sec-head{display:flex;align-items:center;gap:8px;padding:5px 11px;
+    background:var(--panel-2);font-family:var(--mono);font-size:11px;
+    color:var(--dim);letter-spacing:.02em}
+  .sec-head .sec-status{margin-left:auto}
+  .tool-sec.ok .sec-status{color:var(--ok)}
+  .tool-sec.fail .sec-status{color:var(--err)}
+  .job-body pre{font-family:var(--mono);font-size:12px;line-height:1.5;
+    padding:9px 11px;overflow-x:auto;color:var(--text);max-height:420px;
+    overflow-y:auto;white-space:pre;background:var(--bg)}
+  .job-body pre:empty{display:none}
+  .qline{color:var(--warn)}
+  .aline{color:var(--ok)}
+
+  .thinking{font-family:var(--mono);font-size:11.5px;color:var(--dim);
+    max-width:1000px;margin:0 auto 12px;padding:0 18px}
+  .thinking::after{content:'\258B';animation:blink 1s steps(1) infinite;color:var(--pg)}
+  @keyframes blink{50%{opacity:0}}
+
+  #awaitBanner{display:none;max-width:1000px;margin:0 auto;padding:5px 18px;
+    font-family:var(--mono);font-size:11.5px;color:var(--warn)}
+
+  /* ---------- credential prompt ------------------------------------------ */
+  .credcard{max-width:1000px;margin:0 auto 12px;padding:0 18px;
+    animation:ccIn .18s ease-out}
+  @keyframes ccIn{from{opacity:0;transform:translateY(4px)}to{opacity:1}}
+  .credcard.gone{opacity:0;transition:opacity .25s ease}
+  .cc-in{background:var(--panel);border:1px solid var(--line);
+    border-radius:var(--r);padding:11px 13px}
+  .cc-top{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .cc-lock{font-size:11px;color:var(--pg)}
+  :root[data-theme="dark"] .cc-lock{color:var(--pg-l)}
+  .cc-title{font-family:var(--mono);font-size:11px;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--text);font-weight:600}
+  .cc-tag{margin-left:auto;font-family:var(--mono);font-size:9.5px;
+    letter-spacing:.08em;color:var(--dim);border:1px solid var(--line);
+    border-radius:2px;padding:1px 6px;background:var(--panel-2)}
+  .cc-prompt{font-family:var(--mono);font-size:12px;color:var(--dim);
+    margin-bottom:8px;white-space:pre-wrap}
+  .cc-row{display:flex;align-items:center;gap:7px}
+  .cc-row input{flex:1 1 auto;background:var(--bg);border:1px solid var(--line-2);
+    border-radius:var(--r);color:var(--text);font-family:var(--mono);font-size:13px;
+    letter-spacing:.18em;padding:7px 10px;outline:none}
+  .cc-row input:focus{border-color:var(--pg);box-shadow:0 0 0 2px rgba(50,102,144,.15)}
+  .cc-eye{background:var(--panel-2);border:1px solid var(--line-2);
+    border-radius:var(--r);color:var(--dim);font-size:12px;padding:7px 10px;
+    cursor:pointer;line-height:1}
+  .cc-eye:hover{color:var(--text);border-color:var(--pg)}
+  .cc-go{background:var(--pg);border:1px solid var(--pg-d);border-radius:var(--r);
+    color:#fff;font-family:var(--ui);font-size:12px;font-weight:600;
+    padding:7px 14px;cursor:pointer;min-width:70px;line-height:1}
+  .cc-go:hover{background:var(--pg-d)}
+  .cc-note{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-top:8px}
+  .cc-done{display:flex;align-items:center;gap:8px;font-family:var(--mono);
+    font-size:11.5px;color:var(--dim)}
+  .cc-done .tick{color:var(--ok)}
+
+  /* ---------- status bar + input ----------------------------------------- */
+  .statusbar{flex:0 0 auto;display:flex;align-items:center;gap:14px;
+    height:24px;padding:0 12px;background:var(--chrome);
+    border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;
+    color:var(--dim)}
+  .statusbar .sb-right{margin-left:auto;display:flex;gap:14px}
+  .statusbar b{font-weight:600;color:var(--text)}
+
+  footer{flex:0 0 auto;border-top:1px solid var(--line);
+    padding:10px 18px 12px;background:var(--chrome)}
+  .inputwrap{max-width:1000px;margin:0 auto;display:flex;gap:8px;align-items:flex-end}
+  #msg{flex:1;resize:none;background:var(--bg);border:1px solid var(--line-2);
+    border-radius:var(--r);color:var(--text);font-family:var(--ui);font-size:13.5px;
+    padding:9px 11px;min-height:38px;max-height:160px;outline:none}
+  #msg:focus{border-color:var(--pg);box-shadow:0 0 0 2px rgba(50,102,144,.15)}
+  button{background:var(--pg);border:1px solid var(--pg-d);border-radius:var(--r);
+    color:#fff;font-family:var(--ui);font-weight:600;font-size:13px;
+    padding:9px 16px;cursor:pointer}
+  button:hover{background:var(--pg-d)}
+  button:disabled{opacity:.45;cursor:default}
+  #attach{background:var(--panel);color:var(--dim);border:1px solid var(--line-2);
+    padding:9px 11px;font-size:14px;line-height:1}
+  #attach:hover{background:var(--panel-2);color:var(--pg);border-color:var(--pg)}
+  .filechip{max-width:1000px;margin:6px auto 0;padding:0 18px;
+    font-family:var(--mono);font-size:11px;color:var(--ok)}
+
+  @media (max-width:640px){ .bubble{max-width:92%} .toolbar{overflow-x:auto} }
+
+</style>
+</head>
+<body>
+
+<header>
+  <div class="led" id="connLed"></div>
+  <h1><span class="mark">&#128024;</span> <span id="appName">…</span></h1>
+  <div class="sub" id="backendLabel">connecting&hellip;</div>
+</header>
+
+<div class="toolbar">
+  <button class="tb-btn" id="tbDocs"   type="button" title="Documents loaded (/api/documents)" hidden>&#128194; Documents</button>
+  <button class="tb-btn" id="tbRescan" type="button" title="Pick up newly added scripts (/api/rescan)" hidden>&#8635; Rescan</button>
+  <button class="tb-btn" id="tbDebug" type="button" title="Backend state (/api/debug)">&#128269; Debug</button>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" id="tbClear" type="button" title="Clear the transcript (documents stay loaded)">&#10006; Clear</button>
+  <div class="tb-right">
+    <span class="tb-stat" id="tbCount"></span>
+    <div class="tb-sep"></div>
+    <button class="tb-btn" id="tbTheme" type="button" title="Light / dark">&#9681; Theme</button>
+  </div>
+</div>
+
+<div id="chat"></div>
+<div id="awaitBanner">▲ a running job is waiting for your answer — type it below</div>
+
+<div class="statusbar">
+  <span id="sbConn">&#9679; connecting</span>
+  <span id="sbAction">ready</span>
+  <span class="sb-right">
+    <span id="sbRows"></span>
+    <span id="sbTime"></span>
+  </span>
+</div>
+
+<footer>
+  <div class="inputwrap">
+    <button id="attach" title="Attach a file">📄</button>
+    <input type="file" id="fileInput" hidden>
+    <textarea id="msg" rows="1"
+      placeholder="Ask anything…"></textarea>
+    <button id="send">Send</button>
+  </div>
+  <div class="filechip" id="fileChip"></div>
+</footer>
+
+<script>
+console.log('%cRAGifier AI', 'color:#3ddc97');
+const chat = document.getElementById('chat');
+const msgBox = document.getElementById('msg');
+const sendBtn = document.getElementById('send');
+const attachBtn = document.getElementById('attach');
+const fileInput = document.getElementById('fileInput');
+const fileChip = document.getElementById('fileChip');
+const connLed = document.getElementById('connLed');
+const awaitBanner = document.getElementById('awaitBanner');
+
+let ws = null;
+let thinkingEl = null;
+let currentPanel = null;     // ONE activity panel per user turn (holds all tool attempts)
+let currentSecPre = null;    // <pre> of the tool section currently streaming
+let currentSec = null;       // the tool section element currently streaming
+let stepCount = 0;           // tool attempts in the current turn
+let turnToolNames = [];      // tool name(s) used this turn (for the collapsed header)
+let pendingResults = [];     // [{sql?, database?, headers, rows}] shown in the reply
+let pendingSqlPair = null;   // most recent query, waiting to pair with its table
+let pendingFile = null;
+let awaitingAnswer = false;
+
+function scroll(){ chat.scrollTop = chat.scrollHeight; }
+
+/* ---------- markdown (safe subset) ---------- */
+function renderMarkdown(src){
+  const escHtml = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // inline: code, bold, and *italic* only. NO _underscore_ italic — it corrupts
+  // snake_case identifiers (created_at, CURRENT_DATE, order_total, ...).
+  const inline = s => escHtml(s)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>');
+
+  const lines = src.replace(/\r/g,'').split('\n');
+  const fence = /^\s*```\s*(\w*)\s*$/;
+  let html = '', list = null, i = 0;
+  const closeList = () => { if(list){ html += `</${list}>`; list = null; } };
+
+  while(i < lines.length){
+    const fm = lines[i].match(fence);
+    if(fm){                                   // fenced code block
+      closeList();
+      const lang = fm[1] || '';
+      const buf = [];
+      i++;
+      while(i < lines.length && !fence.test(lines[i])){ buf.push(lines[i]); i++; }
+      i++;                                    // consume closing fence (or past EOF)
+      const code = escHtml(buf.join('\n'));
+      html += `<div class="codeblock"><div class="cb-head">`
+            + `<span class="cb-lang">${lang || 'code'}</span>`
+            + `<button class="cb-copy" type="button">Copy</button></div>`
+            + `<pre><code>${code}</code></pre></div>`;
+      continue;
+    }
+    const line = lines[i].replace(/\s+$/,'');
+    let m;
+    if((m = line.match(/^\s*[-*]\s+(.*)$/))){
+      if(list !== 'ul'){ closeList(); html += '<ul>'; list='ul'; }
+      html += `<li>${inline(m[1])}</li>`;
+    } else if((m = line.match(/^\s*(\d+)[.)]\s+(.*)$/))){
+      if(list !== 'ol'){ closeList(); html += '<ol>'; list='ol'; }
+      // preserve the model's actual number, so items split by paragraphs don't
+      // all restart at 1 (li value keeps 1,2,3,4 even across separate lists)
+      html += `<li value="${m[1]}">${inline(m[2])}</li>`;
+    } else if(line.trim() === ''){
+      closeList(); html += '<br>';
+    } else {
+      closeList(); html += `<div>${inline(line)}</div>`;
+    }
+    i++;
+  }
+  closeList();
+  return html;
+}
+
+// Attach copy-to-clipboard handlers to any code blocks inside `container`.
+function wireCopyButtons(container){
+  container.querySelectorAll('.cb-copy').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const codeEl = btn.closest('.codeblock').querySelector('pre code');
+      const text = codeEl ? codeEl.textContent : '';
+      try{
+        if(navigator.clipboard && navigator.clipboard.writeText){
+          await navigator.clipboard.writeText(text);
+        } else { throw new Error('no clipboard api'); }
+      }catch(e){
+        const ta = document.createElement('textarea');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        try{ document.execCommand('copy'); }catch(_){}
+        document.body.removeChild(ta);
+      }
+      const prev = btn.textContent;
+      btn.textContent = 'Copied!'; btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = prev; btn.classList.remove('copied'); }, 1400);
+    });
+  });
+}
+
+/* ---------- table element from parsed data ---------- */
+// SQL query block shown in the result bubble (with copy button)
+function buildSqlEl(sql, database){
+  const holder = document.createElement('div');
+  holder.innerHTML = renderMarkdown('```sql\n' + sql + '\n```');
+  const block = holder.firstElementChild;
+  const lang = block.querySelector('.cb-lang');
+  if(lang) lang.textContent = 'sql · ' + (database || 'db');
+  wireCopyButtons(block);
+  return block;
+}
+
+// CSV export for rendered tables
+function tableToCsv(headers, rows){
+  const esc = v => {
+    v = (v ?? '').toString();
+    return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  };
+  return [headers.map(esc).join(','),
+          ...rows.map(r => headers.map((_, c) => esc(r[c])).join(','))].join('\n');
+}
+
+function downloadCsv(headers, rows){
+  const stamp = new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+  const blob = new Blob([tableToCsv(headers, rows)], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'table_' + stamp + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+
+const DISPLAY_CAP = 1000;   // render at most this many rows; CSV always has all
+
+function buildTableEl(headers, rows){
+  const numCol = headers.map((_, c) =>
+    rows.length > 0 && rows.every(r => /^-?\d+$/.test((r[c] ?? '').trim())));
+  const capped = rows.length > DISPLAY_CAP;
+  const shown = capped ? rows.slice(0, DISPLAY_CAP) : rows;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'tablewrap';
+
+  // header bar: row count (+ preview note) + CSV save button (exports ALL rows)
+  const bar = document.createElement('div');
+  bar.className = 'tw-bar';
+  const info = document.createElement('span');
+  info.className = 'tw-info';
+  info.textContent = capped
+    ? ('Total rows: ' + rows.length.toLocaleString() + ' · showing first '
+       + DISPLAY_CAP.toLocaleString() + ' — use CSV for all')
+    : ('Total rows: ' + rows.length.toLocaleString());
+  const btn = document.createElement('button');
+  btn.className = 'tw-save';
+  btn.type = 'button';
+  btn.textContent = '⬇ CSV';
+  btn.title = 'Save the FULL table (' + rows.length + ' rows) as a .csv file';
+  btn.addEventListener('click', () => downloadCsv(headers, rows));  // full rows
+  bar.appendChild(info); bar.appendChild(btn);
+  wrap.appendChild(bar);
+  const table = document.createElement('table');
+  table.className = 'grid';
+  const thead = document.createElement('thead');
+  const htr = document.createElement('tr');
+  // leading row-number gutter, as in the pgAdmin results grid
+  const corner = document.createElement('th');
+  corner.className = 'rownum';
+  corner.textContent = '';
+  htr.appendChild(corner);
+  headers.forEach((h, c) => {
+    const th = document.createElement('th');
+    th.textContent = h;
+    if(numCol[c]) th.className = 'num';
+    htr.appendChild(th);
+  });
+  thead.appendChild(htr); table.appendChild(thead);
+  const tbody = document.createElement('tbody');
+  shown.forEach((r, ri) => {
+    const tr = document.createElement('tr');
+    const rn = document.createElement('td');
+    rn.className = 'rownum';
+    rn.textContent = (ri + 1);
+    tr.appendChild(rn);
+    headers.forEach((_, c) => {
+      const td = document.createElement('td');
+      td.textContent = r[c] ?? '';
+      if(numCol[c]) td.className = 'num';
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody); wrap.appendChild(table);
+  return wrap;
+}
+
+/* ---------- bubbles ---------- */
+function addBubble(cls, text){
+  const row = document.createElement('div');
+  row.className = 'row ' + cls;
+  const b = document.createElement('div');
+  b.className = 'bubble';
+  b.textContent = text;
+  row.appendChild(b);
+  chat.appendChild(row); scroll();
+}
+
+// The assistant result: rendered table(s) from this turn + the model's prose.
+function addResult(results, prose){
+  const row = document.createElement('div');
+  row.className = 'row bot';
+  const b = document.createElement('div');
+  b.className = 'bubble md' + (results.length ? ' wide' : '');
+  // prose FIRST so the model's headings/framing sit above the data they describe
+  const text = (prose || '').trim();
+  if(text && text !== '(no response)'){
+    const p = document.createElement('div');
+    p.className = 'prose';
+    p.innerHTML = renderMarkdown(text);
+    wireCopyButtons(p);
+    b.appendChild(p);
+  } else if(!results.length){
+    b.appendChild(document.createTextNode('(no response)'));
+  }
+  // then each result = the query that worked (optional) followed by its table
+  results.forEach(r => {
+    if(r.sql) b.appendChild(buildSqlEl(r.sql, r.database));
+    b.appendChild(buildTableEl(r.headers, r.rows));
+  });
+  row.appendChild(b);
+  chat.appendChild(row); scroll();
+}
+
+/* ---------- thinking ---------- */
+function showThinking(){
+  removeThinking();
+  thinkingEl = document.createElement('div');
+  thinkingEl.className = 'thinking';
+  thinkingEl.textContent = 'processing ';
+  chat.appendChild(thinkingEl); scroll();
+}
+function removeThinking(){ if(thinkingEl){ thinkingEl.remove(); thinkingEl = null; } }
+
+/* ---------- live console ---------- */
+// Create the single activity panel for this turn (if not already open).
+function ensurePanel(){
+  if(currentPanel) return currentPanel;
+  const wrap = document.createElement('div');
+  wrap.className = 'job';
+  wrap.innerHTML = `
+    <div class="job-inner">
+      <div class="job-head">
+        <div class="dot"></div>
+        <span class="name">working…</span>
+        <span class="state">running…</span>
+        <button class="job-stop" type="button" title="Cancel the running query / skip this attempt">⏹ stop</button>
+        <span class="toggle">▸ show log</span>
+      </div>
+      <div class="job-body"></div>
+    </div>`;
+  chat.appendChild(wrap);
+  const stopBtn = wrap.querySelector('.job-stop');
+  stopBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation();                       // don't toggle collapse
+    if(ws && ws.readyState === 1){
+      ws.send(JSON.stringify({type:'cancel'}));
+      stopBtn.disabled = true;
+      stopBtn.textContent = 'stopping…';
+      setTimeout(() => { stopBtn.disabled = false; stopBtn.textContent = '⏹ stop'; }, 3000);
+    }
+  });
+  currentPanel = { el: wrap, body: wrap.querySelector('.job-body') };
+  stepCount = 0;
+  turnToolNames = [];
+  currentSecPre = null;
+  scroll();
+  return currentPanel;
+}
+
+// Begin a new tool section within the panel (one per tool call / retry).
+function startSection(name){
+  removeThinking();
+  ensurePanel();
+  stepCount += 1;
+  if(turnToolNames[turnToolNames.length - 1] !== name) turnToolNames.push(name);
+  const sec = document.createElement('div');
+  sec.className = 'tool-sec';
+  const head = document.createElement('div');
+  head.className = 'sec-head';
+  head.innerHTML = `<span class="sec-name">${name}</span>`
+                 + `<span class="sec-attempt">· attempt ${stepCount}</span>`
+                 + `<span class="sec-status">…</span>`;
+  const pre = document.createElement('pre');
+  sec.appendChild(head); sec.appendChild(pre);
+  currentPanel.body.appendChild(sec);
+  currentSecPre = pre;
+  currentSec = sec;
+  scroll();
+}
+
+function consoleText(text, cls){
+  if(!currentSecPre) startSection('output');
+  const pre = currentSecPre;
+  if(cls){
+    const span = document.createElement('span');
+    span.className = cls; span.textContent = text;
+    pre.appendChild(span);
+  } else {
+    pre.appendChild(document.createTextNode(text));
+  }
+  pre.scrollTop = pre.scrollHeight;
+  scroll();
+}
+
+// Mark the current tool section done/failed (panel stays open until the reply).
+function endSection(ok){
+  if(currentSec){
+    currentSec.classList.add(ok ? 'ok' : 'fail');
+    const st = currentSec.querySelector('.sec-status');
+    if(st) st.textContent = ok ? '✓' : '✗';
+  }
+  currentSecPre = null;
+  currentSec = null;
+}
+
+// Collapse the whole turn panel once the reply arrives.
+function finishPanel(){
+  if(!currentPanel) return;
+  const wrap = currentPanel.el;
+  const anyFail = wrap.querySelector('.tool-sec.fail') !== null;
+  wrap.classList.add('collapsible', anyFail ? 'done' : 'done');
+  const uniqueTools = [...new Set(turnToolNames)];
+  wrap.querySelector('.name').textContent =
+    (uniqueTools.length === 1)
+      ? uniqueTools[0] + (stepCount > 1 ? ` · ${stepCount} attempts` : '')
+      : stepCount + ' steps';
+  wrap.querySelector('.state').textContent = 'done';
+  const sb = wrap.querySelector('.job-stop');
+  if(sb) sb.remove();
+  const toggle = wrap.querySelector('.toggle');
+  const head = wrap.querySelector('.job-head');
+  const setLabel = () =>
+    toggle.textContent = wrap.classList.contains('collapsed') ? '▸ show log' : '▾ hide log';
+  head.addEventListener('click', () => { wrap.classList.toggle('collapsed'); setLabel(); });
+  wrap.classList.add('collapsed');   // all attempts tuck away once the answer is ready
+  setLabel();
+  currentPanel = null;
+  currentSecPre = null;
+  currentSec = null;
+  scroll();
+}
+
+
+/* ---------- credential prompts -------------------------------------------
+   Passcodes go over their OWN message type ('answer'), never the chat
+   channel: an answer that arrived as a normal message used to become a chat
+   turn and get sent to the model. They are never echoed into the log either. */
+let credCards = [];
+
+/* A short label for the card, guessed from the prompt a script printed. */
+function credTitleFor(prompt){
+  const p = (prompt || '').toLowerCase();
+  if(p.includes('passcode') || p.includes('otp') ||
+     p.includes('2fa') || p.includes('mfa'))   return 'Passcode';
+  if(p.includes('token'))                      return 'Token';
+  if(p.includes('api key') || p.includes('apikey')) return 'API key';
+  if(p.includes('passphrase'))                 return 'Passphrase';
+  if(p.includes('password'))                   return 'Password';
+  if(p.includes('username') || p.includes('user name') ||
+     p.includes('login'))                      return 'Username';
+  return 'Credential';
+}
+
+function showCredPrompt(prompt){
+  const card = document.createElement('div');
+  card.className = 'credcard';
+  const inner = document.createElement('div');
+  inner.className = 'cc-in';
+  inner.innerHTML = `
+    <div class="cc-top">
+      <span class="cc-lock">&#128274;</span>
+      <span class="cc-title"></span>
+      <span class="cc-tag">MASKED</span>
+    </div>
+    <div class="cc-prompt"></div>
+    <div class="cc-row">
+      <input type="password" autocomplete="off" spellcheck="false">
+      <button class="cc-eye" type="button" title="Show / hide">&#128065;</button>
+      <button class="cc-go" type="button">Submit</button>
+    </div>
+    <div class="cc-note">&#8629; to submit &middot; not written to disk &middot; not sent to the AI model</div>`;
+  card.appendChild(inner);
+  inner.querySelector('.cc-title').textContent = credTitleFor(prompt);
+  inner.querySelector('.cc-prompt').textContent = (prompt || '').trim();
+
+  const input = inner.querySelector('input');
+  const eye   = inner.querySelector('.cc-eye');
+  const go    = inner.querySelector('.cc-go');
+
+  function submit(){
+    const val = input.value;
+    if(!ws || ws.readyState !== 1) return;
+    ws.send(JSON.stringify({type:'answer', text: val}));
+    input.value = '';                                  // drop it from the DOM
+    inner.innerHTML = '';
+    const done = document.createElement('div');
+    done.className = 'cc-done';
+    done.innerHTML = '<span class="tick">&#10003;</span>'
+      + '<span>' + credTitleFor(prompt) + ' &middot; submitted</span>';
+    inner.appendChild(done);
+    card.dataset.done = '1';
+    setAwaiting(false);
+    msgBox.focus();
+  }
+
+  eye.onclick = () => { input.type = input.type === 'password' ? 'text' : 'password';
+                        input.focus(); };
+  go.onclick  = submit;
+  input.addEventListener('keydown', e => {
+    if(e.key === 'Enter'){ e.preventDefault(); submit(); }
+  });
+
+  chat.appendChild(card);
+  credCards.push(card);
+  scroll();
+  setTimeout(() => input.focus(), 30);
+}
+
+/* Once the job finishes, the submitted cards have served their purpose --
+   clear them so the transcript keeps only the result. */
+function clearCredCards(){
+  credCards.forEach(c => {
+    c.classList.add('gone');
+    setTimeout(() => { if(c.parentNode) c.parentNode.removeChild(c); }, 260);
+  });
+  credCards = [];
+}
+
+/* ---------- awaiting-answer ---------- */
+/* The idle placeholder depends on which app is serving, so it is a variable
+   rather than a literal -- otherwise it reverts after every tool run. */
+let idlePlaceholder = 'Ask anything…';
+function setAwaiting(v){
+  awaitingAnswer = v;
+  awaitBanner.style.display = v ? 'block' : 'none';
+  msgBox.placeholder = v ? 'Type your answer to the job’s question…'
+                         : idlePlaceholder;
+}
+
+
+/* ---------- toolbar + status bar -----------------------------------------
+   The status bar mirrors pgAdmin's: connection state on the left, what the
+   last operation was, and its row count / elapsed time on the right. */
+const sbConn = document.getElementById('sbConn');
+const sbAction = document.getElementById('sbAction');
+const sbRows = document.getElementById('sbRows');
+const sbTime = document.getElementById('sbTime');
+const tbCount = document.getElementById('tbCount');
+let opStarted = null;
+
+function setConn(ok){
+  if(connLed) connLed.classList.toggle('off', !ok);
+  if(sbConn) sbConn.innerHTML = ok ? '\u25cf connected' : '\u25cf disconnected';
+}
+function setAction(t){ if(sbAction) sbAction.textContent = t; }
+function setRows(n){ if(sbRows) sbRows.textContent = (n === null || n === undefined)
+  ? '' : ('rows: ' + Number(n).toLocaleString()); }
+function markStart(){ opStarted = performance.now(); }
+function markEnd(){
+  if(opStarted === null || !sbTime) return;
+  const ms = performance.now() - opStarted;
+  const s = Math.floor(ms / 1000), cs = Math.floor(ms % 1000);
+  const hh = String(Math.floor(s / 3600)).padStart(2, '0');
+  const mm = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+  const ss = String(s % 60).padStart(2, '0');
+  sbTime.textContent = 'elapsed ' + hh + ':' + mm + ':' + ss + '.'
+                       + String(cs).padStart(3, '0');
+  opStarted = null;
+}
+
+/* theme: light is the default, as in pgAdmin */
+(function initTheme(){
+  let t = 'light';
+  try { t = localStorage.getItem('theme') || 'light'; } catch(e) {}
+  document.documentElement.setAttribute('data-theme', t);
+})();
+document.getElementById('tbTheme').onclick = () => {
+  const cur = document.documentElement.getAttribute('data-theme') === 'dark'
+    ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', cur);
+  try { localStorage.setItem('theme', cur); } catch(e) {}
+};
+
+document.getElementById('tbDocs').onclick  = () => window.open('/api/documents', '_blank');
+document.getElementById('tbRescan').onclick = async () => {
+  setAction('rescanning scripts\u2026');
+  try { await fetch('/api/rescan', {method:'POST'}); setAction('scripts rescanned'); }
+  catch(e){ setAction('rescan failed'); }
+};
+document.getElementById('tbDebug').onclick = () => window.open('/api/debug', '_blank');
+document.getElementById('tbClear').onclick = () => {
+  chat.innerHTML = '';
+  credCards = [];
+  currentPanel = null; currentSecPre = null; currentSec = null;
+  pendingResults = []; pendingSqlPair = null;
+  setAction('transcript cleared'); setRows(null);
+  if(sbTime) sbTime.textContent = '';
+};
+
+/* ---------- websocket ---------- */
+function connect(){
+  ws = new WebSocket(`ws://${location.host}/ws`);
+  ws.onopen = () => { setConn(true); setAction('ready'); };
+  ws.onclose = () => { setConn(false); setAction('reconnecting\u2026'); setTimeout(connect, 1500); };
+  ws.onmessage = (ev) => {
+    const m = JSON.parse(ev.data);
+    switch(m.type){
+      case 'thinking':      showThinking(); setAction('querying model\u2026'); markStart(); break;
+      case 'assistant':     removeThinking(); finishPanel(); clearCredCards(); addResult(pendingResults, m.text); pendingResults = []; pendingSqlPair = null; markEnd(); setAction('ready'); break;
+      case 'error':         removeThinking(); finishPanel(); addBubble('err', m.text); pendingResults = []; pendingSqlPair = null; setAwaiting(false); break;
+      case 'tool_start':    startSection(m.name); setAction(m.name + ' \u2014 running\u2026'); break;
+      case 'tool_output':   consoleText(m.text); break;
+      case 'tool_table':
+        if(pendingSqlPair){
+          // SQL results supersede each other: only the LAST query's table is
+          // the answer — discovery probes and earlier attempts stay in the log.
+          pendingResults = pendingResults.filter(r => !r.sql);
+          pendingResults.push(Object.assign({}, pendingSqlPair, {headers:m.headers, rows:m.rows}));
+          pendingSqlPair = null;
+        } else {
+          pendingResults.push({headers:m.headers, rows:m.rows});  // fixed tools accumulate
+        }
+        setRows(m.rows.length);
+        break;
+      case 'tool_sql':      pendingSqlPair = {sql:m.sql, database:m.database}; break; // paired with the NEXT table; failed queries emit no table
+      case 'tool_question':
+        setAction('waiting for your input');
+        if(m.secret){ showCredPrompt(m.text); }        // never touches the log
+        else { consoleText(m.text, 'qline'); setAwaiting(true); }
+        break;
+      case 'answer_ack':    break;                      // server confirmed receipt
+      case 'tool_end':      endSection(m.ok); setAwaiting(false); clearCredCards();
+                            setAction(m.name + (m.ok ? ' \u2014 ok' : ' \u2014 failed')); break;
+    }
+  };
+}
+connect();
+
+/* show the live backend in the header */
+fetch('/config').then(r => r.json()).then(c => {
+  const el = document.getElementById('backendLabel');
+  if(!el) return;
+  const name = c.app_name || 'AI Console';
+  document.title = name;
+  const nameEl = document.getElementById('appName');
+  if(nameEl) nameEl.textContent = name;
+
+  const bits = [c.provider || '', c.model || ''].filter(Boolean).join(' \u00b7 ');
+
+  // One UI, two apps: show only the controls the server actually offers.
+  let scope = '';
+  if(typeof c.documents === 'number'){                 // document assistant
+    scope = c.documents + ' doc' + (c.documents === 1 ? '' : 's');
+    const search = c.vectors ? 'vector+keyword' : 'keyword';
+    scope += '  \u00b7  ' + search;
+    document.getElementById('tbDocs').hidden = false;
+    idlePlaceholder = 'Attach a document, then ask about it';
+  } else if(Array.isArray(c.databases)){               // database assistant
+    scope = c.databases.length
+      ? ('db: ' + c.databases.join(', ')) : 'no database configured';
+    if(typeof c.scripts === 'number'){
+      scope += '  \u00b7  ' + c.scripts + ' script' + (c.scripts === 1 ? '' : 's');
+      document.getElementById('tbRescan').hidden = false;
+    }
+    idlePlaceholder = 'Ask a question, or name a script to run';
+  }
+
+  if(!awaitingAnswer) msgBox.placeholder = idlePlaceholder;
+  el.textContent = [scope, bits].filter(Boolean).join('  \u00b7  ') || 'not configured';
+  if(tbCount) tbCount.textContent = scope.split('  \u00b7  ')[0] || '';
+  el.title = (c.backend || '') + (c.fallback ? ('  (fallback: ' + c.fallback + ')') : '');
+}).catch(() => {});
+
+/* ---------- sending ---------- */
+function send(){
+  let text = msgBox.value.trim();
+  if(!text || !ws || ws.readyState !== 1) return;
+
+  if(awaitingAnswer){
+    consoleText(' ' + text + '\n', 'aline');   // answer echoes into the live log
+    setAwaiting(false);
+  } else {
+    addBubble('user', text);
+    setRows(null);
+    if(sbTime) sbTime.textContent = '';
+    if(pendingFile){
+      text += `\n\n[system note: user uploaded a file saved at path "${pendingFile.path}" (original name: ${pendingFile.name})]`;
+      pendingFile = null; fileChip.textContent = '';
+    }
+  }
+  ws.send(JSON.stringify({type:'user', text}));
+  msgBox.value = ''; msgBox.style.height = 'auto';
+}
+
+sendBtn.onclick = send;
+msgBox.addEventListener('keydown', e => {
+  if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); send(); }
+});
+msgBox.addEventListener('input', () => {
+  msgBox.style.height = 'auto';
+  msgBox.style.height = Math.min(msgBox.scrollHeight, 160) + 'px';
+});
+
+attachBtn.onclick = () => fileInput.click();
+fileInput.onchange = async () => {
+  const f = fileInput.files[0];
+  if(!f) return;
+  const fd = new FormData(); fd.append('file', f);
+  fileChip.textContent = 'uploading ' + f.name + '…';
+  try{
+    const r = await fetch('/upload', {method:'POST', body:fd});
+    if(!r.ok){
+      let why = 'upload failed';
+      try { why = (await r.json()).error || why; } catch(e) {}
+      fileChip.textContent = '\u26a0 ' + why;
+      fileChip.style.display = '';
+      pendingFile = null;
+      return;
+    }
+    const j = await r.json();
+    pendingFile = j;
+    fileChip.textContent = '⎘ attached: ' + j.name
+      + (j.size_mb ? ' (' + j.size_mb + ' MB)' : '')
+      + ' — send a message to have it read';
+  }catch(e){ fileChip.textContent = 'upload failed: ' + e; }
+  fileInput.value = '';
+};
+</script>
+</body>
+</html>

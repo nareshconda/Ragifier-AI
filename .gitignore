@@ -1,0 +1,25 @@
+# --- secrets ---------------------------------------------------------------
+.env
+.env.*
+!.env.example
+
+# --- your documents and their indexes --------------------------------------
+# Everything you upload lives here. Never commit it: these are your files, and
+# an index contains the full text of them.
+storage/*
+!storage/.gitkeep
+uploads/
+
+# --- python ----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# --- os / editor -----------------------------------------------------------
+.DS_Store
+.vscode/
+.idea/
+*.log
